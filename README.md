@@ -110,6 +110,15 @@ For further details, navigate to the `intracardiac_dataset` folder and read the 
 - (Task 3 & 4) Medium Blog post : https://medium.com/p/a20661669937
 
 
+**Installation**\
+To install the packages and dependencies on your computer:
+
+If Windows (powershell):\
+    - Follow the instructions on [this](https://tylerbutler.com/2012/05/how-to-install-python-pip-and-virtualenv-on-windows-with-powershell/) link to enable pip \
+    - Make sure the path is added correctly (follow [this](https://stackoverflow.com/questions/30963446/how-to-install-packages-with-pip-in-windows-powershell) link)\
+    - Run pip install -r requirements.txt
+    
+
 
 License
 ----------------
