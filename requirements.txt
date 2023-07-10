@@ -66,7 +66,6 @@ jupyter==1.0.0
 jupyter-client==6.1.7
 jupyter-console==6.2.0
 jupyter-core==4.7.1
-JustDeepIt==0.1.26
 keras-nightly==2.7.0.dev2021100607
 Keras-Preprocessing==1.1.2
 kiwisolver==1.3.1
@@ -146,10 +145,8 @@ setuptools==52.0.0.post20210125
 sip==4.19.13
 six==1.15.0
 sniffio==1.3.0
-stable-baselines3==1.4.0
 starlette==0.25.0
 tabulate==0.9.0
-tb-nightly==2.7.0a20211013
 tenacity==8.0.1
 tensorboard-data-server==0.6.1
 tensorboard-plugin-wit==1.8.0
@@ -158,14 +155,10 @@ tensorflow-probability==0.14.1
 termcolor==1.1.0
 terminado==0.9.4
 testpath==0.4.4
-tf-agents==0.10.0
-tf-estimator-nightly==2.7.0.dev2021092408
-tf-nightly==2.7.0.dev20211023
 threadpoolctl==2.1.0
 tifffile==2021.4.8
 toolz==0.11.1
 torch==1.8.1
-torchvision==0.10.0
 tornado==6.1
 tqdm==4.64.1
 traitlets==5.0.5
