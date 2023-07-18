@@ -121,8 +121,8 @@ class TimeSeriesTransformer(nn.Module):
         dropout_encoder: float=0.2, 
         dropout_decoder: float=0.2,
         dropout_pos_enc: float=0.1,
-        dim_feedforward_encoder: int=2048,
-        dim_feedforward_decoder: int=2048,
+        dim_feedforward_encoder: int=256,
+        dim_feedforward_decoder: int=256,
         num_predicted_features: int=75
         ): 
 
@@ -176,9 +176,12 @@ class TimeSeriesTransformer(nn.Module):
             out_features=dim_val
             )  
         
-        self.linear_mapping = nn.Linear(
+        self.linear_mapping = nn.Sequential(
+            nn.Linear(
             in_features=dim_val, 
             out_features=num_predicted_features
+            ),
+            nn.Tanh()
             )
 
         # Create positional encoder
@@ -187,8 +190,7 @@ class TimeSeriesTransformer(nn.Module):
             dropout=dropout_pos_enc
             )
 
-        # The encoder layer used in the paper is identical to the one used by
-        # Vaswani et al (2017) on which the PyTorch module is based.
+
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=dim_val, 
             nhead=n_heads,
@@ -197,11 +199,6 @@ class TimeSeriesTransformer(nn.Module):
             batch_first=batch_first
             )
 
-        # Stack the encoder layers in nn.TransformerDecoder
-        # It seems the option of passing a normalization instance is redundant
-        # in my case, because nn.TransformerEncoderLayer per default normalizes
-        # after each sub-layer
-        # (https://github.com/pytorch/pytorch/issues/24930).
         self.encoder = nn.TransformerEncoder(
             encoder_layer=encoder_layer,
             num_layers=n_encoder_layers, 
@@ -216,11 +213,6 @@ class TimeSeriesTransformer(nn.Module):
             batch_first=batch_first
             )
 
-        # Stack the decoder layers in nn.TransformerDecoder
-        # It seems the option of passing a normalization instance is redundant
-        # in my case, because nn.TransformerDecoderLayer per default normalizes
-        # after each sub-layer
-        # (https://github.com/pytorch/pytorch/issues/24930).
         self.decoder = nn.TransformerDecoder(
             decoder_layer=decoder_layer,
             num_layers=n_decoder_layers, 
@@ -255,34 +247,18 @@ class TimeSeriesTransformer(nn.Module):
 
         """
 
-        #print("From model.forward(): Size of src as given to forward(): {}".format(src.size()))
-        #print("From model.forward(): tgt size = {}".format(tgt.size()))
-
-        # Pass throguh the input layer right before the encoder
-        src = self.encoder_input_layer(src) # src shape: [batch_size, src length, dim_val] regardless of number of input features
-        #print("From model.forward(): Size of src after input layer: {}".format(src.size()))
+        src = self.encoder_input_layer(src) 
+        
 
         # Pass through the positional encoding layer
-        src = self.positional_encoding_layer(src) # src shape: [batch_size, src length, dim_val] regardless of number of input features
-        #print("From model.forward(): Size of src after pos_enc layer: {}".format(src.size()))
+        src = self.positional_encoding_layer(src)
 
-        # Pass through all the stacked encoder layers in the encoder
-        # Masking is only needed in the encoder if input sequences are padded
-        # which they are not in this time series use case, because all my
-        # input sequences are naturally of the same length. 
-        # (https://github.com/huggingface/transformers/issues/4083)
         src = self.encoder( # src shape: [batch_size, enc_seq_len, dim_val]
             src=src
             )
-        #print("From model.forward(): Size of src after encoder: {}".format(src.size()))
 
         # Pass decoder input through decoder input layer
         decoder_output = self.decoder_input_layer(tgt) 
-
-        #if src_mask is not None:
-            #print("From model.forward(): Size of src_mask: {}".format(src_mask.size()))
-        #if tgt_mask is not None:
-            #print("From model.forward(): Size of tgt_mask: {}".format(tgt_mask.size()))
 
         # Pass throguh decoder - output shape: [batch_size, target seq len, dim_val]
         decoder_output = self.decoder(
@@ -291,10 +267,7 @@ class TimeSeriesTransformer(nn.Module):
             tgt_mask=tgt_mask,
             memory_mask=src_mask)
 
-        #print("From model.forward(): decoder_output shape after decoder: {}".format(decoder_output.shape))
-
         # Pass through linear mapping
         decoder_output = self.linear_mapping(decoder_output) # shape [batch_size, target seq len]
-        #print("From model.forward(): decoder_output size after linear_mapping = {}".format(decoder_output.size()))
 
         return decoder_output
