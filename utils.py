@@ -242,7 +242,7 @@ def get_activation_time(
     actTime = np.reshape(actTime,(75,1))
     return actTime
 
-def fileReader(path: str):
+def fileReader(path: str, finalInd: int):
     '''
     Args:
         path: Path where the data is residing at the moment
@@ -257,9 +257,10 @@ def fileReader(path: str):
         if re.match(regex, x):
             files.append(path + x)
 
-    data_dirs = read_data_dirs(files)
+    data_dirs = read_data_dirs(files)[:finalInd]
 
-    trainLength = 0.8*len(data_dirs)
+    trainLength = int(0.8*len(data_dirs))
+
 
     for i, (pECGData_file, VmData_file) in enumerate(tqdm(data_dirs, desc='Loading datafiles ')):
         if i < trainLength:
@@ -276,10 +277,10 @@ def fileReader(path: str):
                 VmTestData.append(np.load(f))
         
     
-    VmTrainData = np.stack(VmTrainData, axis = 0)
-    pECGTrainData = np.stack(pECGTrainData, axis=0)
-    VmTestData = np.stack(VmTestData, axis = 0)
-    pECGTestData = np.stack(pECGTestData, axis = 0)
+    VmTrainData = np.stack(VmTrainData, axis = 0)[:finalInd]
+    pECGTrainData = np.stack(pECGTrainData, axis=0)[:finalInd]
+    VmTestData = np.stack(VmTestData, axis = 0)[:finalInd]
+    pECGTestData = np.stack(pECGTestData, axis = 0)[:finalInd]
     return torch.from_numpy(VmTrainData), torch.from_numpy(pECGTrainData), torch.from_numpy(VmTestData), torch.from_numpy(pECGTestData)
 
 def get_indices_entire_sequence(VmData: torch.Tensor, ECGData: torch.Tensor, window_size: int, step_size: int) -> list:
