@@ -277,10 +277,10 @@ def fileReader(path: str, finalInd: int):
                 VmTestData.append(np.load(f))
         
     
-    VmTrainData = np.stack(VmTrainData, axis = 0)[:finalInd]
-    pECGTrainData = np.stack(pECGTrainData, axis=0)[:finalInd]
-    VmTestData = np.stack(VmTestData, axis = 0)[:finalInd]
-    pECGTestData = np.stack(pECGTestData, axis = 0)[:finalInd]
+    VmTrainData = np.stack(VmTrainData, axis = 0)
+    pECGTrainData = np.stack(pECGTrainData, axis=0)
+    VmTestData = np.stack(VmTestData, axis = 0)
+    pECGTestData = np.stack(pECGTestData, axis = 0)
     return torch.from_numpy(VmTrainData), torch.from_numpy(pECGTrainData), torch.from_numpy(VmTestData), torch.from_numpy(pECGTestData)
 
 def get_indices_entire_sequence(VmData: torch.Tensor, ECGData: torch.Tensor, window_size: int, step_size: int) -> list:
@@ -330,3 +330,69 @@ def get_indices_entire_sequence(VmData: torch.Tensor, ECGData: torch.Tensor, win
         subseq_last_idx += step_size
 
     return datInd
+
+def fileReaderForActivation(path: str, dataInd: int):
+    '''
+    Load the data and get the activation for the output
+    '''
+    files = []
+
+    regex = r'data_hearts_dd_0p2*'
+    pECGTrainData, ActivationTrainData, pECGTestData, VmTestData  = [], [], [], []
+    for x in os.listdir(path):
+        if re.match(regex, x):
+            files.append(path + x)
+    
+    data_dirs = read_data_dirs(files)[:dataInd]
+
+    trainLength = int(0.8*len(data_dirs))
+
+    for i, (pECGData_file, VmData_file) in enumerate(tqdm(data_dirs, desc='Loading datafiles ')):
+        if i < trainLength:
+            with open(pECGData_file, 'rb') as f:
+                pECGTrainData.append(get_standard_leads(np.load(f)))
+            with open(VmData_file, 'rb') as f:
+                ActivationTrainData.append(np.argmax(np.load(f), axis = 0))
+        
+        else:
+            with open(pECGData_file, 'rb') as f:
+                pECGTestData.append(get_standard_leads(np.load(f)))
+            
+            with open(VmData_file, 'rb') as f:
+                VmTestData.append(np.load(f))
+        
+    
+    ActivationTrainData = np.stack(ActivationTrainData, axis = 0)
+    pECGTrainData = np.stack(pECGTrainData, axis=0)
+    VmTestData = np.stack(VmTestData, axis = 0)
+    pECGTestData = np.stack(pECGTestData, axis = 0)
+    return torch.from_numpy(ActivationTrainData), torch.from_numpy(pECGTrainData), torch.from_numpy(VmTestData), torch.from_numpy(pECGTestData)
+
+
+# funtion to get the activation time
+def get_activation_time(
+        Vm : np.ndarray
+    ) -> np.ndarray :
+    """
+    Get the activation time from the Vm.
+    
+    Parameters
+    ----------
+    Vm : np.ndarray
+        Vm.
+        
+    Returns
+    -------
+    actTime : np.ndarray
+        Activation time.
+    """
+    actTime = []
+    # check that Vm has 75 columns
+    if Vm.shape[1] != 75:
+        print('Error: Vm does not have 75 columns')
+        return actTime
+    for col in range(0,75,1):
+        actTime.append(np.argmax(Vm[:,col]>0))
+    actTime = torch.from_numpy(np.asarray(actTime))
+    actTime = actTime.reshape((75,1))
+    return actTime
