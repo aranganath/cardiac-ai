@@ -9,8 +9,18 @@ This repository contains the notebooks and code for the 2023 Data Science Challe
 
 
 ## Description
-The electrocardiogram (ECG) provides a non-invasive and cost-effective tool for the diagnosis of heart conditions. However, the standard 12-lead ECG is inadequate for mapping out the electrical activity of the heart in sufficient detail for many clinical applications (e.g., identifying the origins of an arrhythmia). In order to construct a more detailed map of the heart, current techniques require not only ECG readings from dozens of locations on a patient’s body, but also patient-specific anatomical models built from expensive medical imaging procedures. For this Data Science Challenge problem, we consider an alternative data-driven approach to reconstructing electroanatomical maps of the heart at clinically relevant resolutions, which combines input from the standard 12-lead electrocardiogram (ECG) with advanced machine learning techniques. We begin with the clearly-defined task of identifying heart conditions from ECG profiles and then consider a range of more open-ended challenges, including the reconstruction of a complete spatio-temporal activation map of the human heart.
+We attempted at using a Transformer to predict the ECG data.
 
+To run the program run 
+```
+python main.py
+```
+
+
+The above code may or may not run. In this case, run the notebook 
+```
+Transformer.ipynb
+```
 
 ## Contents
 - [tutorials](./tutorials/)
