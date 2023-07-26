@@ -3,6 +3,7 @@ from torch import nn, Tensor
 import math
 import torch.nn.functional as F
 
+from pdb import set_trace
 
 class PositionalEncoder(nn.Module):
     """
@@ -176,12 +177,9 @@ class TimeSeriesTransformer(nn.Module):
             out_features=dim_val
             )  
         
-        self.linear_mapping = nn.Sequential(
-            nn.Linear(
+        self.linear_mapping = nn.Linear(
             in_features=dim_val, 
             out_features=num_predicted_features
-            ),
-            nn.Tanh()
             )
 
         # Create positional encoder
@@ -246,6 +244,7 @@ class TimeSeriesTransformer(nn.Module):
 
 
         """
+        decoder_output = []
 
         src = self.encoder_input_layer(src) 
         
@@ -256,18 +255,46 @@ class TimeSeriesTransformer(nn.Module):
         src = self.encoder( # src shape: [batch_size, enc_seq_len, dim_val]
             src=src
             )
+        
+        # Now train the decoder to unfold completely
 
-        # Pass decoder input through decoder input layer
-        decoder_output = self.decoder_input_layer(tgt) 
+        if self.train:
 
-        # Pass throguh decoder - output shape: [batch_size, target seq len, dim_val]
-        decoder_output = self.decoder(
-            tgt=decoder_output,
-            memory=src,
-            tgt_mask=tgt_mask,
-            memory_mask=src_mask)
+            for i in range(tgt.shape[2]):
 
-        # Pass through linear mapping
-        decoder_output = self.linear_mapping(decoder_output) # shape [batch_size, target seq len]
+                # Pass decoder input through decoder input layer
+                out_tgt = self.decoder_input_layer(tgt[:,:,i,:]) 
+                
+                # Pass throguh decoder - output shape: [batch_size, target seq len, dim_val]
+                out_tgt = self.decoder(tgt=out_tgt, memory=src,tgt_mask=tgt_mask, memory_mask=src_mask)
 
+                # Pass through linear mapping
+                out_tgt = self.linear_mapping(out_tgt)
+            
+
+                decoder_output.append(out_tgt) # shape [batch_size, target seq len]
+        
+        else:
+
+            out_tgt = tgt[:,:,0,:]
+
+            for i in range(tgt.shape[2]):
+
+                # Pass decoder input through decoder input layer
+                out_tgt = self.decoder_input_layer(out_tgt) 
+                
+                # Pass throguh decoder - output shape: [batch_size, target seq len, dim_val]
+                out_tgt = self.decoder(tgt=out_tgt, memory=src,tgt_mask=tgt_mask, memory_mask=src_mask)
+
+                # Pass through linear mapping
+                out_tgt = self.linear_mapping(out_tgt)
+            
+
+                decoder_output.append(out_tgt) # shape [batch_size, target seq len]
+        
+
+        
+
+        decoder_output = torch.cat(decoder_output, axis = 0)
+        
         return decoder_output

@@ -2,7 +2,7 @@ import os
 import torch
 from torch.utils.data import Dataset
 from typing import Tuple
-
+from pdb import set_trace
 class TransformerDataset(Dataset):
     """
     Dataset class used for transformer models.
@@ -72,28 +72,20 @@ class TransformerDataset(Dataset):
 
         src_list, trg_list, trg_y_list = [], [], []
 
-        for i in range(len(self.datInd)-1):
-            start_idx, end_idx = self.datInd[i][0], self.datInd[i][1]
 
-            output_sequence = self.VmData[index,start_idx:end_idx,:]
-
-            input_sequence = self.ECGData[index, start_idx:end_idx, :]
-
-
-            src, trg, trg_y = self.get_src_trg(
-                inp_sequence= input_sequence,
-                target_sequence = output_sequence,
-                enc_seq_len=self.enc_seq_len,
-                dec_seq_len=self.dec_seq_len,
-                target_seq_len=self.target_seq_len
-                )
+        inp_seq = self.ECGData[index,:,:]
+        tar_seq = self.VmData[index,:,:]
+        src, trg, trg_y = self.get_src_trg(
+            inp_sequence= inp_seq,
+            target_sequence = tar_seq,
+            enc_seq_len=self.enc_seq_len,
+            dec_seq_len=self.dec_seq_len,
+            target_seq_len=self.target_seq_len
+            )
             
-            src_list.append(src)
-            trg_list.append(trg)
-            trg_y_list.append(trg_y)
+
         
-        
-        return torch.stack(src_list, axis =1), torch.stack(trg_list, axis = 1), torch.stack(trg_y_list, axis =1)
+        return src, trg, trg_y
         
     def get_src_trg(
         self,
@@ -129,20 +121,16 @@ class TransformerDataset(Dataset):
         
         """
 
-        assert inp_sequence.shape[0] == enc_seq_len + target_seq_len, "Sequence length {} does not equal encoder length {} + target length {}".format(sequence.shape[2],enc_seq_len, target_seq_len)
-        
         # encoder input
-        src = inp_sequence[:enc_seq_len] 
-        
-        # decoder input. As per the paper, it must have the same dimension as the 
-        # target sequence, and it must contain the last value of src, and all
-        # values of trg_y except the last (i.e. it must be shifted right by 1)
-        trg = target_sequence[enc_seq_len-1:target_sequence.shape[0]-1]
-        assert trg.shape[0] == target_seq_len, "Length of trg {trg} does not match target sequence length {target_seq_len}".format(trg=trg.shape[0], target_seq_len=target_seq_len)
+        src = inp_sequence[:enc_seq_len,:]
+        trg, trg_y = [], []
 
-        # The target sequence against which the model output will be compared to compute loss
-        trg_y = target_sequence[enc_seq_len: target_sequence.shape[0]]
+        for i in range(len(self.datInd)-1):
+            start_trg_idx, end_trg_idx = self.datInd[i][0], self.datInd[i][1]
+            start_trgy_idx, end_trgy_idx = self.datInd[i+1][0], self.datInd[i+1][1]
+            trg.append(target_sequence[start_trg_idx:end_trg_idx, :])
+            trg_y.append(target_sequence[start_trgy_idx:end_trgy_idx, :])
+        trg = torch.stack(trg, axis = 0)
+        trg_y = torch.stack(trg_y, axis = 0)
 
-        assert trg_y.shape[0] == target_seq_len, "Length of trg_y does not match target sequence length"
-
-        return src, trg, trg_y # change size from [batch_size, target_seq_len, num_features] to [batch_size, target_seq_len] 
+        return src, trg, trg_y
