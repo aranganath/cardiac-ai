@@ -19,33 +19,43 @@ torch.set_default_dtype(torch.float64)
 
 
 # Torch Tensor data !
+
+# Now, also get the activation times
 path = './Datasets/intracardiac_dataset/'
-VmTrainData, pECGTrainData, VmDataTest, pECGTestData  = fileReader(path, 100)
+VmTrainData, pECGTrainData, VmDataTest, pECGTestData, actTimeTrain, actTimeTest  = fileReader(path, 32)
 print('Data loading from files - complete')
 
 VmTrainData = (VmTrainData - torch.min(VmTrainData))/(torch.max(VmTrainData) - torch.min(VmTrainData))
+
+VmDataTest = (VmDataTest - torch.min(VmDataTest))/(torch.max(VmDataTest)- torch.min(VmDataTest))
+
+
+actTimeTrain = (actTimeTrain - torch.min(actTimeTrain))/(torch.max(actTimeTrain)-torch.min(actTimeTrain))
+actTimeTest = (actTimeTest - torch.min(actTimeTest))/(torch.max(actTimeTest) - torch.min(actTimeTest))
+
 pECGTrainData = (pECGTrainData - torch.min(pECGTrainData))/(torch.max(pECGTrainData) - torch.min(pECGTrainData))
 
-VmDataTest = (VmDataTest - torch.min(VmDataTest))/(torch.max(VmDataTest) - torch.min(VmDataTest))
 
 pECGTestData = (pECGTestData - torch.min(pECGTestData))/(torch.max(pECGTestData) - torch.min(pECGTestData))
 print('Normalization - complete!')
 
 # %%
-dim_val = 320
-n_heads = 32
+dim_val = 75
+n_heads = 75
 n_decoder_layers = 2
 n_encoder_layers = 2
 input_size = 12
 dec_seq_len = 498
 enc_seq_len = 500
-output_sequence_length = 75
+
 max_seq_len = enc_seq_len
-train_batch_size = 8
-test_batch_size = 10
-batch_first= False
+train_batch_size = 16
+test_batch_size = 4
+batch_first= True
 output_size = 75
-window_size = 75
+window_size = 32
+stride = window_size
+output_sequence_length = window_size
 
 # %%
 
@@ -53,14 +63,15 @@ window_size = 75
 # The idea is: start - stop, where stop - start is window_size
 # This means, each tuple in VmInd and pECGInd is 50 steps
 datInd = get_indices_entire_sequence(VmData = VmTrainData, 
-                                            ECGData = pECGTrainData, 
+                                            ECGData = pECGTrainData,
                                             window_size= window_size, 
-                                            step_size = window_size)
+                                            step_size = stride)
 
 # Now let's collect the training data in the Transformer Dataset class
 TrainData = TransformerDataset(VmData = VmTrainData,
                                     datInd=datInd,
                                     ECGData = pECGTrainData,
+                                    actTimeData=actTimeTrain,
                                     enc_seq_len = enc_seq_len,
                                     dec_seq_len = dec_seq_len,
                                     target_seq_len = output_sequence_length
@@ -72,17 +83,19 @@ TrainData = DataLoader(TrainData, train_batch_size)
 datInd = get_indices_entire_sequence(VmData = VmDataTest, 
                                             ECGData = pECGTestData, 
                                             window_size= window_size, 
-                                            step_size = window_size)
+                                            step_size = stride)
 
 
 # Now, let's load the test data
-TestData = TransformerDataset(VmData = VmDataTest, 
-                                    ECGData = pECGTestData,
-                                    datInd=datInd,
-                                    enc_seq_len = enc_seq_len,
-                                    dec_seq_len = dec_seq_len,
-                                    target_seq_len = output_sequence_length
-                                )
+TestData = TransformerDataset(
+                            VmData = VmDataTest, 
+                            ECGData = pECGTestData,
+                            actTimeData=actTimeTest,
+                            datInd=datInd,
+                            enc_seq_len = enc_seq_len,
+                            dec_seq_len = dec_seq_len,
+                            target_seq_len = output_sequence_length
+            )
 
 TestData = DataLoader(TestData, test_batch_size)
 
@@ -100,85 +113,96 @@ model = TimeSeriesTransformer(
     num_predicted_features=output_size
 )
 
-# model = torch.nn.DataParallel(model)
+print('Total Model parameters:', sum([parameter.numel() for parameter in model.parameters()]))
+
 
 # Define the MSE loss
-criterion = torch.nn.HuberLoss(delta=5.0)
+criterion = torch.nn.HuberLoss(delta=1)
+
+# Define cross-entropy loss for the activation times
+criterion2 = torch.nn.MSELoss()
 
 # Define the optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr = 1e-3)
 
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.1)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.9)
 
-# %%
 EPOCHS= 80000
 train_losses = []
 src_mask = generate_square_subsequent_mask(
                 dim1=output_sequence_length,
-                dim2=enc_seq_len
+                dim2=6
             )
 tgt_mask = generate_square_subsequent_mask(
     dim1=output_sequence_length,
-    dim2=output_sequence_length
+    dim2=6
 )
 
-gap_length = 1
+train_interval = 100
+model_interval = 10000
 pbar = tqdm(range(EPOCHS), desc='Training')
 
 for epoch in pbar:
-    string = ''
-    for src, trg, trg_y in TrainData:
+    PATH = ''
+    running_loss = 0
+    for i, (src, trg, trg_y, act_time) in enumerate(TrainData):
         optimizer.zero_grad()
-        prediction = model(
-            src=src.permute(1,0,2).to(device),
-            tgt=trg.permute(0,2,1,3).permute(1,0,2,3).to(device),
+        recon, activation = model(
+            src=src.permute(0,2,1).to(device),
+            tgt=trg.to(device),
             src_mask=src_mask,
             tgt_mask=tgt_mask
-            )
-        
-        
-        loss = criterion(prediction.view_as(trg).to(device), trg_y.to(device))
+        )
+        loss = criterion(recon.to(device), trg_y.to(device)) + criterion2(activation.to(device), act_time.type(torch.float64).to(device))
         loss.backward()
         optimizer.step()
-        if (epoch+1) % gap_length == 0:
-            model.train = True
+        scheduler.step()
+        running_loss += loss.item()
+        if (epoch+1) % train_interval == 0:
+            model.train = False
             with torch.no_grad():
-                src, trg, trg_y = next(iter(TestData))
-                prediction = model(
-                        src=src.permute(1,0,2).to(device),
-                        tgt=trg.permute(0,2,1,3).permute(1,0,2,3).to(device),
-                        src_mask=src_mask,
-                        tgt_mask=tgt_mask
-                    )
+                src, trg, trg_y, act_time = next(iter(TestData))
+                recon, activation = model(
+                    src=src.permute(0,2,1).to(device),
+                    tgt=trg.to(device),
+                    src_mask=src_mask,
+                    tgt_mask=tgt_mask
+                )
                 row = 7
                 column = 10
-                
 
-                prediction = prediction.view_as(trg_y).reshape(-1,trg_y.shape[1]*trg_y.shape[2] , 75).detach().cpu()
+                recon = recon.reshape(-1,recon.shape[1]*recon.shape[2] , 75).detach().cpu()
                 trg_y = trg_y.reshape(-1, trg_y.shape[1]*trg_y.shape[2], 75).detach().cpu()
                 pyplot.figure(figsize=(18, 9))
-                for count, i in enumerate(range(prediction.shape[2])):
+                for count, i in enumerate(range(recon.shape[2])):
                     pyplot.subplot(8, 10, count + 1)
-                    pyplot.plot(prediction[0,:,i])
+                    pyplot.plot(recon[0,:,i])
                     pyplot.plot(trg_y[0,:,i])
                     pyplot.title(f'i = {i}')
                     pyplot.grid(visible=True, which='major', color='#666666', linestyle='-')
                     pyplot.minorticks_on()
                     pyplot.grid(visible=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
                 pyplot.tight_layout()
-                if not os.path.isdir('graphs'):
-                    os.mkdir('graphs')
-                pyplot.savefig('./graphs/model_'+str(dim_val) +'_encoder_'+ str(n_encoder_layers)+'_decoder_'+str(n_decoder_layers)+'_epochs_'+str(epoch)+'_window_size_'+str(window_size)+'.png')
-
+                pyplot.savefig('./graphs/VmRec-'+str(dim_val) +'-encoder-'+ str(n_encoder_layers)+'-decoder-'+str(n_decoder_layers)+'-epochs-'+str(epoch+1)+'-window_size-'+str(window_size)+'.png')
+                pyplot.close()
+            if (epoch + 1) % model_interval == 0:
                 PARENT_PATH = 'model_weights'
                 if not os.path.isdir(PARENT_PATH):
                     os.mkdir(PARENT_PATH)
                 
-                PATH = './model_weights/model_'+str(dim_val) +'_encoder_'+ str(n_encoder_layers)+'_decoder_'+str(n_decoder_layers)+'_epochs_'+str(EPOCHS)+'.pth'
-                sring = 'Saved to path: '+PATH
+                PATH = './model_weights/model-'+str(dim_val) +'-encoder-'+ str(n_encoder_layers)+'-decoder-'+str(n_decoder_layers)+'-epochs-'+str(epoch+1)+'.pth'
                 torch.save(model.state_dict(), PATH)
+            model.train = True
 
         
-    
-    pbar.set_description('Training   Loss: '+str(loss.item())+string)
-    train_losses.append(loss.item())
+    pbar.set_description('Training   Loss: '+'{:.5f}'.format(running_loss/(i+1))+ ' Saved to :'+PATH)
+    train_losses.append(running_loss/(i+1))
+
+# Plotting the training graph
+pyplot.figure()
+pyplot.plot(train_losses)
+if not os.path.isdir('train_graphs'):
+    os.mkdir('train_graphs')
+TRAINPATH = './train_graphs/VmRec-'+str(dim_val) +'-encoder-'+ str(n_encoder_layers)+'-decoder-'+str(n_decoder_layers)+'-epochs-'+str(epoch)+'-window_size-'+str(window_size)+'.png'
+pyplot.savefig(TRAINPATH)
+print('Training graph saved to '+ TRAINPATH)

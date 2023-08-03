@@ -51,13 +51,27 @@ class PositionalEncoder(nn.Module):
         # copy pasted from PyTorch tutorial
         position = torch.arange(max_seq_len).unsqueeze(1)
         
-        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        if d_model %2 == 0:
+            div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+            
+            pe = torch.zeros(max_seq_len, 1, d_model)
+            
+            pe[:, 0, 0::2] = torch.sin(position * div_term)
+            
+
+            pe[:, 0, 1::2] = torch.cos(position * div_term)
         
-        pe = torch.zeros(max_seq_len, 1, d_model)
-        
-        pe[:, 0, 0::2] = torch.sin(position * div_term)
-        
-        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        else:
+            div_term_even = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+            
+            div_term_odd = torch.exp(torch.arange(1, d_model, 2) * (-math.log(10000.0) / d_model))
+
+            pe = torch.zeros(max_seq_len, 1, d_model)
+            
+            pe[:, 0, 0::2] = torch.sin(position * div_term_even)
+            
+
+            pe[:, 0, 1::2] = torch.cos(position * div_term_odd)
         
         self.register_buffer('pe', pe)
         
@@ -122,8 +136,8 @@ class TimeSeriesTransformer(nn.Module):
         dropout_encoder: float=0.2, 
         dropout_decoder: float=0.2,
         dropout_pos_enc: float=0.1,
-        dim_feedforward_encoder: int=256,
-        dim_feedforward_decoder: int=256,
+        dim_feedforward_encoder: int=128,
+        dim_feedforward_decoder: int=128,
         num_predicted_features: int=75
         ): 
 
@@ -162,31 +176,43 @@ class TimeSeriesTransformer(nn.Module):
                                     model, num_predicted_features should be 2.
         """
 
-        super().__init__() 
+        super().__init__()
 
         self.dec_seq_len = dec_seq_len
+        self.num_predicted_features = num_predicted_features
 
         # Creating the three linear layers needed for the model
-        self.encoder_input_layer = nn.Linear(
-            in_features=input_size, 
-            out_features=dim_val 
-            )
+        # self.encoder_input_layer = nn.Linear(
+        #     in_features=input_size, 
+        #     out_features=dim_val 
+        #     )
 
-        self.decoder_input_layer = nn.Linear(
-            in_features=num_predicted_features,
-            out_features=dim_val
-            )  
+        self.encoder_input_layer = nn.Sequential(
+            nn.Conv1d(12, 12, stride=2, kernel_size=3), 
+            nn.ReLU(),
+            nn.Conv1d(12, 12, kernel_size = 2, stride = 2),
+            nn.ReLU(),
+            nn.Conv1d(12,12, kernel_size=2, stride=2),
+            nn.ReLU(),
+            nn.Linear(62, dim_val)
+        )
+
+        self.decoder_input_layer = nn.Sequential(
+            nn.Linear(
+                in_features=num_predicted_features,
+                out_features=dim_val),
+        )
         
         self.linear_mapping = nn.Linear(
             in_features=dim_val, 
             out_features=num_predicted_features
-            )
+        )
 
         # Create positional encoder
         self.positional_encoding_layer = PositionalEncoder(
             d_model=dim_val,
             dropout=dropout_pos_enc
-            )
+        )
 
 
         encoder_layer = nn.TransformerEncoderLayer(
@@ -195,13 +221,13 @@ class TimeSeriesTransformer(nn.Module):
             dim_feedforward=dim_feedforward_encoder,
             dropout=dropout_encoder,
             batch_first=batch_first
-            )
+        )
 
         self.encoder = nn.TransformerEncoder(
             encoder_layer=encoder_layer,
             num_layers=n_encoder_layers, 
             norm=None
-            )
+        )
 
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=dim_val,
@@ -209,13 +235,50 @@ class TimeSeriesTransformer(nn.Module):
             dim_feedforward=dim_feedforward_decoder,
             dropout=dropout_decoder,
             batch_first=batch_first
-            )
+        )
 
         self.decoder = nn.TransformerDecoder(
             decoder_layer=decoder_layer,
             num_layers=n_decoder_layers, 
             norm=None
-            )
+        )
+        # self.decoder = nn.Sequential(
+        #     nn.Conv1d(12, 8, kernel_size=3, stride =2),
+        #     nn.ReLU(),
+        #     nn.Conv1d(8, 4, kernel_size=3, stride=2),
+        #     nn.ReLU(),
+        #     nn.Conv1d(4, 2, kernel_size=3, stride=2),
+        #     nn.ReLU(),
+        #     nn.ConvTranspose1d(2, 4, kernel_size=3, stride=2),
+        #     nn.ReLU(),
+        #     nn.ConvTranspose1d(4, 8, kernel_size=3, stride=2),
+        #     nn.ReLU(),
+        #     nn.ConvTranspose1d(8, 12, kernel_size=3, stride=2),
+        #     nn.ReLU(),
+        #     nn.Linear(71,75)
+        # )
+
+
+        self.activationTime = nn.Sequential(
+            nn.Conv1d(12, 60, kernel_size=(5,), stride=(3,)),
+            nn.ReLU(),
+            nn.Conv1d(60, 45, kernel_size=(5,), stride=(2,)),
+            nn.ReLU(),
+            nn.Conv1d(45, 15, kernel_size=(2,), stride=(2,)),
+            nn.ReLU()
+        )
+
+        self.activationToVm = nn.Sequential(         
+            nn.ConvTranspose1d(15, 45, kernel_size=(2,), stride=(2,),),
+            nn.ReLU(),
+            nn.ConvTranspose1d(45, 60, kernel_size=(5,), stride=(2,),),
+            nn.ReLU(),
+            nn.ConvTranspose1d(60, 12, kernel_size=(5,), stride=(3,),),
+            nn.ReLU(),
+            nn.Linear(71, 75),
+            nn.ReLU()
+        )
+    
 
     def forward(self, src: Tensor, tgt: Tensor, src_mask: Tensor=None, 
                 tgt_mask: Tensor=None) -> Tensor:
@@ -244,35 +307,49 @@ class TimeSeriesTransformer(nn.Module):
 
 
         """
-        decoder_output = []
-
+        recon = []
         src = self.encoder_input_layer(src) 
-        
 
         # Pass through the positional encoding layer
         src = self.positional_encoding_layer(src)
 
-        src = self.encoder( # src shape: [batch_size, enc_seq_len, dim_val]
-            src=src
-            )
         
-        # Now train the decoder to unfold completely
 
+        src = self.encoder(
+            src=src
+        )
+
+        # What if the previous info we get is the activation time ?!
+        # This would be the input to the decoder
+        # The output shape will be [batch_size, 75]
+        
+        src = self.activationTime(src)
+
+        activation = src.reshape(-1, self.num_predicted_features)
+        
+        src = self.activationToVm(src)
+
+        # During training 
         if self.train:
-
-            for i in range(tgt.shape[2]):
+            
+            for i in range(tgt.shape[1]):
 
                 # Pass decoder input through decoder input layer
-                out_tgt = self.decoder_input_layer(tgt[:,:,i,:]) 
-                
-                # Pass throguh decoder - output shape: [batch_size, target seq len, dim_val]
-                out_tgt = self.decoder(tgt=out_tgt, memory=src,tgt_mask=tgt_mask, memory_mask=src_mask)
+                out_tgt = self.decoder_input_layer(tgt[:,i,:,:])
+
+                # Pass through decoder - output shape: [batch_size, target seq len, dim_val]
+                out_tgt = self.decoder(tgt=out_tgt, memory=src)
 
                 # Pass through linear mapping
                 out_tgt = self.linear_mapping(out_tgt)
             
 
-                decoder_output.append(out_tgt) # shape [batch_size, target seq len]
+                recon.append(out_tgt) # shape [batch_size, target seq len]
+            
+            
+            recon = torch.stack(recon, axis = 1)
+            
+            return recon, activation
         
         else:
 
@@ -284,17 +361,15 @@ class TimeSeriesTransformer(nn.Module):
                 out_tgt = self.decoder_input_layer(out_tgt) 
                 
                 # Pass throguh decoder - output shape: [batch_size, target seq len, dim_val]
-                out_tgt = self.decoder(tgt=out_tgt, memory=src,tgt_mask=tgt_mask, memory_mask=src_mask)
+                out_tgt = self.decoder(tgt=out_tgt, memory=src)
 
                 # Pass through linear mapping
                 out_tgt = self.linear_mapping(out_tgt)
             
 
-                decoder_output.append(out_tgt) # shape [batch_size, target seq len]
+                recon.append(out_tgt) # shape [batch_size, target seq len]
         
-
+            recon = torch.stack(recon, axis = 2)
+            return recon, src
         
-
-        decoder_output = torch.cat(decoder_output, axis = 0)
         
-        return decoder_output

@@ -5,6 +5,7 @@ import glob
 import numpy as np
 import re
 from tqdm import tqdm
+from pdb import set_trace
 
 
 def generate_square_subsequent_mask(dim1: int, dim2: int) -> torch.Tensor:
@@ -251,7 +252,7 @@ def fileReader(path: str, finalInd: int):
     # Now, let's load the data itself
     files = []
     regex = r'data_hearts_dd_0p2*'
-    pECGTrainData, VmTrainData, pECGTestData, VmTestData  = [], [], [], []
+    pECGTrainData, VmTrainData, pECGTestData, VmTestData, actTimeTrain, actTimeTest  = [], [], [], [], [], []
 
     for x in os.listdir(path):
         if re.match(regex, x):
@@ -268,6 +269,7 @@ def fileReader(path: str, finalInd: int):
                 pECGTrainData.append(get_standard_leads(np.load(f)))
             with open(VmData_file, 'rb') as f:
                 VmTrainData.append(np.load(f))
+                actTimeTrain.append(get_activation_time(VmTrainData[-1]).squeeze(1))
         
         else:
             with open(pECGData_file, 'rb') as f:
@@ -275,13 +277,16 @@ def fileReader(path: str, finalInd: int):
             
             with open(VmData_file, 'rb') as f:
                 VmTestData.append(np.load(f))
+                actTimeTest.append(get_activation_time(VmTestData[-1]).squeeze(1))
         
     
     VmTrainData = np.stack(VmTrainData, axis = 0)
     pECGTrainData = np.stack(pECGTrainData, axis=0)
     VmTestData = np.stack(VmTestData, axis = 0)
     pECGTestData = np.stack(pECGTestData, axis = 0)
-    return torch.from_numpy(VmTrainData), torch.from_numpy(pECGTrainData), torch.from_numpy(VmTestData), torch.from_numpy(pECGTestData)
+    actTimeTrain = np.stack(actTimeTrain, axis = 0)
+    actTimeTest = np.stack(actTimeTest, axis = 0)
+    return torch.from_numpy(VmTrainData), torch.from_numpy(pECGTrainData), torch.from_numpy(VmTestData), torch.from_numpy(pECGTestData), torch.from_numpy(actTimeTrain), torch.from_numpy(actTimeTest)
 
 def get_indices_entire_sequence(VmData: torch.Tensor, ECGData: torch.Tensor, window_size: int, step_size: int) -> list:
     """
@@ -312,12 +317,9 @@ def get_indices_entire_sequence(VmData: torch.Tensor, ECGData: torch.Tensor, win
     Return:
         indices: a list of tuples
     """
-    stop_position = VmData.shape[1] # 1- because of 0 indexing
+    stop_position = VmData.shape[1] 
     
-    # Start the first sub-sequence at index position 0
-    subseq_first_idx = 0
-    
-    subseq_last_idx = window_size
+    subseq_first_idx, subseq_last_idx = 0, window_size
     
     datInd = []
     
@@ -328,6 +330,7 @@ def get_indices_entire_sequence(VmData: torch.Tensor, ECGData: torch.Tensor, win
         subseq_first_idx += step_size
         
         subseq_last_idx += step_size
+    
 
     return datInd
 

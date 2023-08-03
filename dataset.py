@@ -11,6 +11,7 @@ class TransformerDataset(Dataset):
     def __init__(self, 
         VmData: torch.tensor,
         ECGData: torch.tensor,
+        actTimeData: torch.tensor,
         datInd: list,
         enc_seq_len: int, 
         dec_seq_len: int, 
@@ -49,6 +50,8 @@ class TransformerDataset(Dataset):
 
         self.ECGData = ECGData
 
+        self.actTime = actTimeData
+
         self.enc_seq_len = enc_seq_len
 
         self.dec_seq_len = dec_seq_len
@@ -72,9 +75,9 @@ class TransformerDataset(Dataset):
 
         src_list, trg_list, trg_y_list = [], [], []
 
-
         inp_seq = self.ECGData[index,:,:]
         tar_seq = self.VmData[index,:,:]
+        act_time = self.actTime[index, :]
         src, trg, trg_y = self.get_src_trg(
             inp_sequence= inp_seq,
             target_sequence = tar_seq,
@@ -85,7 +88,7 @@ class TransformerDataset(Dataset):
             
 
         
-        return src, trg, trg_y
+        return src, trg, trg_y, act_time
         
     def get_src_trg(
         self,
