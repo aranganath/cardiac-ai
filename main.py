@@ -5,6 +5,7 @@ from matplotlib import pyplot
 import os
 from pdb import set_trace
 from dataset import TransformerDataset
+from models import TimeSeriesTransformer
 
 # %%
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -22,16 +23,10 @@ torch.set_default_dtype(torch.float64)
 
 # Now, also get the activation times
 path = './Datasets/intracardiac_dataset/'
-VmTrainData, pECGTrainData, VmDataTest, pECGTestData, actTimeTrain, actTimeTest  = fileReader(path, 32)
+train_test_ratio = 0.01
+VmTrainData, pECGTrainData, VmDataTest, pECGTestData, actTimeTrain, actTimeTest  = fileReader(path, 1000, train_test_ratio)
 print('Data loading from files - complete')
 
-VmTrainData = (VmTrainData - torch.min(VmTrainData))/(torch.max(VmTrainData) - torch.min(VmTrainData))
-
-VmDataTest = (VmDataTest - torch.min(VmDataTest))/(torch.max(VmDataTest)- torch.min(VmDataTest))
-
-
-actTimeTrain = (actTimeTrain - torch.min(actTimeTrain))/(torch.max(actTimeTrain)-torch.min(actTimeTrain))
-actTimeTest = (actTimeTest - torch.min(actTimeTest))/(torch.max(actTimeTest) - torch.min(actTimeTest))
 
 pECGTrainData = (pECGTrainData - torch.min(pECGTrainData))/(torch.max(pECGTrainData) - torch.min(pECGTrainData))
 
@@ -42,18 +37,18 @@ print('Normalization - complete!')
 # %%
 dim_val = 75
 n_heads = 75
-n_decoder_layers = 2
-n_encoder_layers = 2
+n_decoder_layers = 1
+n_encoder_layers = 1
 input_size = 12
 dec_seq_len = 498
 enc_seq_len = 500
 
 max_seq_len = enc_seq_len
-train_batch_size = 16
-test_batch_size = 4
+train_batch_size = 20
+test_batch_size = 6
 batch_first= True
 output_size = 75
-window_size = 32
+window_size = 10
 stride = window_size
 output_sequence_length = window_size
 
@@ -63,9 +58,10 @@ output_sequence_length = window_size
 # The idea is: start - stop, where stop - start is window_size
 # This means, each tuple in VmInd and pECGInd is 50 steps
 datInd = get_indices_entire_sequence(VmData = VmTrainData, 
-                                            ECGData = pECGTrainData,
-                                            window_size= window_size, 
-                                            step_size = stride)
+                                    ECGData = pECGTrainData,
+                                    window_size= window_size, 
+                                    step_size = stride
+                                )
 
 # Now let's collect the training data in the Transformer Dataset class
 TrainData = TransformerDataset(VmData = VmTrainData,
@@ -78,7 +74,8 @@ TrainData = TransformerDataset(VmData = VmTrainData,
                                 )
 
 
-TrainData = DataLoader(TrainData, train_batch_size)
+TrainData = DataLoader(TrainData, batch_size=train_batch_size)
+print(TrainData.batch_size)
 
 datInd = get_indices_entire_sequence(VmData = VmDataTest, 
                                             ECGData = pECGTestData, 
@@ -100,7 +97,7 @@ TestData = TransformerDataset(
 TestData = DataLoader(TestData, test_batch_size)
 
 # %%
-from models import TimeSeriesTransformer
+
 model = TimeSeriesTransformer(
     dim_val=dim_val,
     batch_first=batch_first,
@@ -125,7 +122,7 @@ criterion2 = torch.nn.MSELoss()
 # Define the optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr = 1e-3)
 
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.9)
+# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.999)
 
 EPOCHS= 80000
 train_losses = []
@@ -156,7 +153,7 @@ for epoch in pbar:
         loss = criterion(recon.to(device), trg_y.to(device)) + criterion2(activation.to(device), act_time.type(torch.float64).to(device))
         loss.backward()
         optimizer.step()
-        scheduler.step()
+        # scheduler.step()
         running_loss += loss.item()
         if (epoch+1) % train_interval == 0:
             model.train = False

@@ -243,7 +243,7 @@ def get_activation_time(
     actTime = np.reshape(actTime,(75,1))
     return actTime
 
-def fileReader(path: str, finalInd: int):
+def fileReader(path: str, finalInd: int, train_test_ratio: float):
     '''
     Args:
         path: Path where the data is residing at the moment
@@ -260,7 +260,7 @@ def fileReader(path: str, finalInd: int):
 
     data_dirs = read_data_dirs(files)[:finalInd]
 
-    trainLength = int(0.8*len(data_dirs))
+    trainLength = int(train_test_ratio*len(data_dirs))
 
 
     for i, (pECGData_file, VmData_file) in enumerate(tqdm(data_dirs, desc='Loading datafiles ')):

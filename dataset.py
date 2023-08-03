@@ -61,10 +61,9 @@ class TransformerDataset(Dataset):
 
 
     def __len__(self):
-        
-        return len(self.datInd)
+        return self.ECGData.shape[0]
 
-    def __getitem__(self, index):
+    def __getitem__(self, idx):
         """
         Returns a tuple with 3 elements:
         1) src (the encoder input)
@@ -74,10 +73,9 @@ class TransformerDataset(Dataset):
         # Get the first and last element of the i'th tuple in the list self.VmInds
 
         src_list, trg_list, trg_y_list = [], [], []
-
-        inp_seq = self.ECGData[index,:,:]
-        tar_seq = self.VmData[index,:,:]
-        act_time = self.actTime[index, :]
+        inp_seq = self.ECGData[idx,:,:]
+        tar_seq = self.VmData[idx,:,:]
+        act_time = self.actTime[idx, :]
         src, trg, trg_y = self.get_src_trg(
             inp_sequence= inp_seq,
             target_sequence = tar_seq,
@@ -135,5 +133,4 @@ class TransformerDataset(Dataset):
             trg_y.append(target_sequence[start_trgy_idx:end_trgy_idx, :])
         trg = torch.stack(trg, axis = 0)
         trg_y = torch.stack(trg_y, axis = 0)
-
         return src, trg, trg_y

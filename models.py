@@ -352,10 +352,9 @@ class TimeSeriesTransformer(nn.Module):
             return recon, activation
         
         else:
+            out_tgt = tgt[:,0,:,:]
 
-            out_tgt = tgt[:,:,0,:]
-
-            for i in range(tgt.shape[2]):
+            for i in range(tgt.shape[1]):
 
                 # Pass decoder input through decoder input layer
                 out_tgt = self.decoder_input_layer(out_tgt) 
@@ -369,7 +368,7 @@ class TimeSeriesTransformer(nn.Module):
 
                 recon.append(out_tgt) # shape [batch_size, target seq len]
         
-            recon = torch.stack(recon, axis = 2)
+            recon = torch.stack(recon, axis = 1)
             return recon, src
         
         
