@@ -23,13 +23,14 @@ torch.set_default_dtype(torch.float64)
 
 # Now, also get the activation times
 path = './Datasets/intracardiac_dataset/'
-train_test_ratio = 0.01
-VmTrainData, pECGTrainData, VmDataTest, pECGTestData, actTimeTrain, actTimeTest  = fileReader(path, 1000, train_test_ratio)
+train_test_ratio = 0.8
+VmTrainData, pECGTrainData, VmDataTest, pECGTestData, actTimeTrain, actTimeTest  = fileReader(path, 20, train_test_ratio)
 print('Data loading from files - complete')
 
-
+VmTrainData = (VmTrainData - torch.min(VmTrainData))/(torch.max(VmTrainData)-torch.min(VmTrainData))
 pECGTrainData = (pECGTrainData - torch.min(pECGTrainData))/(torch.max(pECGTrainData) - torch.min(pECGTrainData))
 
+VmDataTest = (VmDataTest - torch.min(VmDataTest))/(torch.max(VmDataTest) - torch.min(VmDataTest))
 
 pECGTestData = (pECGTestData - torch.min(pECGTestData))/(torch.max(pECGTestData) - torch.min(pECGTestData))
 print('Normalization - complete!')
@@ -45,10 +46,10 @@ enc_seq_len = 500
 
 max_seq_len = enc_seq_len
 train_batch_size = 20
-test_batch_size = 6
+test_batch_size = 1
 batch_first= True
 output_size = 75
-window_size = 10
+window_size = 75
 stride = window_size
 output_sequence_length = window_size
 
@@ -74,7 +75,7 @@ TrainData = TransformerDataset(VmData = VmTrainData,
                                 )
 
 
-TrainData = DataLoader(TrainData, batch_size=train_batch_size)
+TrainData = DataLoader(TrainData, batch_size=train_batch_size, shuffle=False, generator=torch.Generator(device='cuda'))
 print(TrainData.batch_size)
 
 datInd = get_indices_entire_sequence(VmData = VmDataTest, 
@@ -94,7 +95,7 @@ TestData = TransformerDataset(
                             target_seq_len = output_sequence_length
             )
 
-TestData = DataLoader(TestData, test_batch_size)
+TestData = DataLoader(TestData, test_batch_size, shuffle=False, generator=torch.Generator(device='cuda'))
 
 # %%
 
@@ -122,7 +123,7 @@ criterion2 = torch.nn.MSELoss()
 # Define the optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr = 1e-3)
 
-# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.999)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.999)
 
 EPOCHS= 80000
 train_losses = []
@@ -150,10 +151,11 @@ for epoch in pbar:
             src_mask=src_mask,
             tgt_mask=tgt_mask
         )
-        loss = criterion(recon.to(device), trg_y.to(device)) + criterion2(activation.to(device), act_time.type(torch.float64).to(device))
+        y = torch.cat([trg[:,0,:,:].unsqueeze(1) , trg_y], axis = 1)
+        loss = criterion(recon.to(device), y.to(device)) + criterion2(activation.to(device), act_time.type(torch.float64).to(device))
         loss.backward()
         optimizer.step()
-        # scheduler.step()
+        scheduler.step()
         running_loss += loss.item()
         if (epoch+1) % train_interval == 0:
             model.train = False
@@ -165,16 +167,17 @@ for epoch in pbar:
                     src_mask=src_mask,
                     tgt_mask=tgt_mask
                 )
+                y = torch.cat([trg[:,0,:,:].unsqueeze(1) , trg_y], axis = 1)
                 row = 7
                 column = 10
 
-                recon = recon.reshape(-1,recon.shape[1]*recon.shape[2] , 75).detach().cpu()
-                trg_y = trg_y.reshape(-1, trg_y.shape[1]*trg_y.shape[2], 75).detach().cpu()
+                recon = recon.reshape(recon.shape[1]*recon.shape[2] , 75).detach().cpu()
+                y = y.reshape(y.shape[1]*y.shape[2], 75).detach().cpu()
                 pyplot.figure(figsize=(18, 9))
-                for count, i in enumerate(range(recon.shape[2])):
+                for count, i in enumerate(range(recon.shape[1])):
                     pyplot.subplot(8, 10, count + 1)
-                    pyplot.plot(recon[0,:,i])
-                    pyplot.plot(trg_y[0,:,i])
+                    pyplot.plot(recon[:,i])
+                    pyplot.plot(y[:,i])
                     pyplot.title(f'i = {i}')
                     pyplot.grid(visible=True, which='major', color='#666666', linestyle='-')
                     pyplot.minorticks_on()

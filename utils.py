@@ -262,9 +262,10 @@ def fileReader(path: str, finalInd: int, train_test_ratio: float):
 
     trainLength = int(train_test_ratio*len(data_dirs))
 
+    trainIndices = set(np.random.permutation(len(data_dirs))[:trainLength])
 
     for i, (pECGData_file, VmData_file) in enumerate(tqdm(data_dirs, desc='Loading datafiles ')):
-        if i < trainLength:
+        if i in trainIndices:
             with open(pECGData_file, 'rb') as f:
                 pECGTrainData.append(get_standard_leads(np.load(f)))
             with open(VmData_file, 'rb') as f:

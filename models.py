@@ -278,6 +278,20 @@ class TimeSeriesTransformer(nn.Module):
             nn.Linear(71, 75),
             nn.ReLU()
         )
+
+        self.FirstKTimesteps = nn.Sequential(
+            nn.Conv1d(12, 15, kernel_size=(3,), stride=(2,),),
+            nn.ReLU(),
+            nn.Conv1d(15, 24, kernel_size=(2,), stride=(2,),),
+            nn.ReLU(),
+            nn.ConvTranspose1d(24, 15, kernel_size=(2,), stride=(2,),),
+            nn.ReLU(),
+            nn.ConvTranspose1d(15, 12, kernel_size=(3,), stride=(2,),),
+            nn.ReLU(),
+            nn.ConvTranspose1d(12, 75, kernel_size=(2,), stride=(1,), dilation = 2),
+            nn.ReLU(),
+            nn.Linear(75, out_features=75)
+        )
     
 
     def forward(self, src: Tensor, tgt: Tensor, src_mask: Tensor=None, 
@@ -328,6 +342,8 @@ class TimeSeriesTransformer(nn.Module):
         activation = src.reshape(-1, self.num_predicted_features)
         
         src = self.activationToVm(src)
+        # Generate the first k timesteps (This should be your window)
+        recon.append(self.FirstKTimesteps(src))
 
         # During training 
         if self.train:
@@ -352,7 +368,7 @@ class TimeSeriesTransformer(nn.Module):
             return recon, activation
         
         else:
-            out_tgt = tgt[:,0,:,:]
+            out_tgt = recon[-1]
 
             for i in range(tgt.shape[1]):
 
