@@ -387,4 +387,83 @@ class TimeSeriesTransformer(nn.Module):
             recon = torch.stack(recon, axis = 1)
             return recon, src
         
+
+# From Mikel's github https://github.com/landajuela/cardiac_ml/blob/main/learn_ecg2vm.py
+class Fire(nn.Module):
+
+    def __init__(self, inplanes, squeeze_planes,
+                 expand1x1_planes, expand3x3_planes):
+        super(Fire, self).__init__()
+        self.inplanes = inplanes
+        self.squeeze = nn.Conv1d(inplanes, squeeze_planes, kernel_size=1)
+        self.squeeze_activation = nn.ReLU(inplace=True)
+        self.expand1x1 = nn.Conv1d(squeeze_planes, expand1x1_planes,
+                                   kernel_size=1)
+        self.expand1x1_activation = nn.ReLU(inplace=True)
+        self.expand3x3 = nn.Conv1d(squeeze_planes, expand3x3_planes,
+                                   kernel_size=3, padding=1)
+        self.expand3x3_activation = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        x = self.squeeze_activation(self.squeeze(x))
+        return torch.cat([
+            self.expand1x1_activation(self.expand1x1(x)),
+            self.expand3x3_activation(self.expand3x3(x))
+            ], 1)
+
+
+class SqueezeNet(nn.Module):
+
+    def __init__(self, version='1_0', dropout = 0.5, kernel_size = 3):
+        super(SqueezeNet, self).__init__()
+        if version == '1_0':
+            self.features = nn.Sequential(
+                nn.Conv1d(12, 96, kernel_size=7, stride=2),
+                nn.ReLU(inplace=True),
+                nn.MaxPool1d(kernel_size=3, stride=2, ceil_mode=True),
+                Fire(96, 16, 64, 64),
+                Fire(128, 16, 64, 64),
+                Fire(128, 32, 128, 128),
+                nn.MaxPool1d(kernel_size=3, stride=2, ceil_mode=True),
+                Fire(256, 32, 128, 128),
+                Fire(256, 48, 192, 192),
+                Fire(384, 48, 192, 192),
+                Fire(384, 64, 256, 256),
+                nn.MaxPool1d(kernel_size=3, stride=2, ceil_mode=True),
+                Fire(512, 64, 256, 256),
+            )
+        elif version == '1_1':  # PAPER
+            self.features = nn.Sequential(
+                nn.Conv1d(12, 64, kernel_size=kernel_size, stride=1, padding = 1 + math.ceil((kernel_size-3)/2) ),
+                nn.ReLU(inplace=True),
+                nn.MaxPool1d(kernel_size=kernel_size, stride=1, padding = 1 + math.ceil((kernel_size-3)/2), ceil_mode=True),
+                Fire(64, 16, 64, 64),
+                Fire(128, 16, 64, 64),
+                nn.MaxPool1d(kernel_size=kernel_size, stride=1, padding = 1 + math.floor((kernel_size-3)/2), ceil_mode=True),
+                Fire(128, 32, 128, 128),
+                Fire(256, 32, 128, 128),
+                nn.MaxPool1d(kernel_size=kernel_size, stride=1, padding = 1 + math.floor((kernel_size-3)/2), ceil_mode=True),
+                Fire(256, 48, 192, 192),
+                Fire(384, 48, 192, 192),
+                Fire(384, 64, 256, 256),
+                Fire(512, 64, 256, 256)
+            )
+        # Final convolution is initialized differently from the rest
+        final_conv = nn.Conv1d(512, 75, kernel_size=1, padding = 0)
+        self.classifier = nn.Sequential(
+            nn.Dropout(p = dropout),
+            final_conv
+        )
+    
+        #Initialization
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.classifier(x)
+        return x
         
