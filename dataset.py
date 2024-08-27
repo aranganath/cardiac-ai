@@ -134,3 +134,78 @@ class TransformerDataset(Dataset):
         trg = torch.stack(trg, axis = 0)
         trg_y = torch.stack(trg_y, axis = 0)
         return src, trg, trg_y
+
+
+# 1D CNN dataset
+class CNN1dDataset(Dataset):
+    """
+    Dataset class used for 1D CNN models.
+    
+    """
+    def __init__(self, 
+        VmData: torch.tensor,
+        ECGData: torch.tensor,
+        # actTimeData: torch.tensor,
+        # datInd: list,
+        # enc_seq_len: int, 
+        # dec_seq_len: int, 
+        # target_seq_len: int
+        ) -> None:
+
+        """
+        Args:
+
+            data: tensor, the entire train, validation or test data sequence 
+                        before any slicing. If univariate, data.size() will be 
+                        [number of samples, number of variables]
+                        where the number of variables will be equal to 1 + the number of
+                        exogenous variables. Number of exogenous variables would be 0
+                        if univariate.
+
+        """
+        
+        super().__init__()
+
+        # self.datInd = datInd
+
+        self.VmData = VmData
+
+        self.ECGData = ECGData
+
+        # self.actTime = actTimeData
+
+        # self.enc_seq_len = enc_seq_len
+
+        # self.dec_seq_len = dec_seq_len
+
+        # self.target_seq_len = target_seq_len
+
+
+
+    def __len__(self):
+        return self.ECGData.shape[0]
+
+    def __getitem__(self, idx):
+        """
+        Returns a tuple with 3 elements:
+        1) src (the encoder input)
+        2) trg (the decoder input)
+        3) trg_y (the target)
+        """
+        # Get the first and last element of the i'th tuple in the list self.VmInds
+
+        src_list, trg_list, trg_y_list = [], [], []
+        inp_seq = self.ECGData[idx,:,:].T
+        tar_seq = self.VmData[idx,:,:].T
+        # act_time = self.actTime[idx, :]
+        # src, trg, trg_y = self.get_src_trg(
+        #     inp_sequence= inp_seq,
+        #     target_sequence = tar_seq,
+        #     enc_seq_len=self.enc_seq_len,
+        #     dec_seq_len=self.dec_seq_len,
+        #     target_seq_len=self.target_seq_len
+        #     )
+            
+
+        
+        return inp_seq, tar_seq
