@@ -162,3 +162,9 @@ cython_debug/
 
 # Remove datasets
 Datasets/
+intracardiac_dataset/
+
+# Trained models
+cnnModel.best.pth
+cnnModel.training.epoch.0.pth
+cnnModel.training.epoch.100.pth
