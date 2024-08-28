@@ -10,6 +10,10 @@ from models import SqueezeNet
 from dataset import CNN1dDataset
 from trainable_model import TrainableModel
 
+seed_value = 12345
+torch.manual_seed(seed_value)  # For CPU
+torch.cuda.manual_seed(seed_value)  # For GPU
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 torch.set_default_device(device)
 print(device)
@@ -36,6 +40,7 @@ ValData = CNN1dDataset(VmDataTest[:data_split], pECGTestData[:data_split])
 TestData = CNN1dDataset(VmDataTest[data_split:], pECGTestData[data_split:])
 
 model = SqueezeNet(version='1_1')
+model.to(device)
 
 # Define learning parameters -- same as Mikel's github
 learning_rate = 1e-3
@@ -58,5 +63,5 @@ outputHandler = '../cardiac-ai/trainingStats'
 dataloader = DataLoader(TrainData, batch_size, shuffle=True)
 val_loader = DataLoader(ValData, batch_size)
 
-train_model = TrainableModel(criterion, optimizer, scheduler, outputHandler, device="cpu", progressbar = True)
+train_model = TrainableModel(criterion, optimizer, scheduler, outputHandler, device=device, progressbar = True)
 train_model.learn(model, dataloader, val_loader, num_epochs, grad_clippling=False, checkpointRate = None, name = "cnnModel")
