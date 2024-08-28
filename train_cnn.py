@@ -60,8 +60,8 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size_scheduler,gamma=
 outputHandler = '../cardiac-ai/trainingStats'
 
 # Define data loader
-dataloader = DataLoader(TrainData, batch_size, shuffle=True,pin_memory=True,pin_memory_device=device)
-val_loader = DataLoader(ValData, batch_size,pin_memory=True, pin_memory_device=device)
+dataloader = DataLoader(TrainData, batch_size)
+val_loader = DataLoader(ValData, batch_size)
 
 train_model = TrainableModel(criterion, optimizer, scheduler, outputHandler, device=device, progressbar = True)
 train_model.learn(model, dataloader, val_loader, num_epochs, grad_clippling=False, checkpointRate = None, name = "cnnModel")
