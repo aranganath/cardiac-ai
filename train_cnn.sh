@@ -9,7 +9,7 @@
 # #SBATCH --constraint=gpu #uncomment this line if you need the access to GPU
 #SBATCH --gres=gpu:1   #uncomment this line if you need GPU access (2 GPUs)
 #SBATCH --job-name=cardiac_ai_cnn    # this is your job’s name
-#SBATCH --mail-user=jornelasmunozD@ucmerced.edu  
+#SBATCH --mail-user=jornelasmunoz@ucmerced.edu  
 #SBATCH --mail-type=ALL  #uncomment the first two lines if you want to receive the email notifications
 #SBATCH --export=ALL
 #  type 'man sbatch' for more information and options
@@ -17,6 +17,8 @@
 # run your job
 pwd; hostname; date
 export PROJECT_DIR=/home/jornelasmunoz/cardiac-ai
+
+source activate pytorch
 
 echo 'Starting Matlab'
 python3 -u $PROJECT_DIR/train_cnn.py
