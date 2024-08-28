@@ -17,7 +17,7 @@ torch.cuda.manual_seed(seed_value)  # For GPU
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 torch.set_default_device(device)
 print(device)
-
+generator = torch.Generator(device=device)
 torch.set_default_dtype(torch.float64)
 
 # Load data
@@ -60,8 +60,8 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size_scheduler,gamma=
 outputHandler = '../cardiac-ai/trainingStats'
 
 # Define data loader
-dataloader = DataLoader(TrainData, batch_size, shuffle=True)
-val_loader = DataLoader(ValData, batch_size)
+dataloader = DataLoader(TrainData, batch_size, shuffle=True,pin_memory=True,pin_memory_device=device)
+val_loader = DataLoader(ValData, batch_size,pin_memory=True, pin_memory_device=device)
 
 train_model = TrainableModel(criterion, optimizer, scheduler, outputHandler, device=device, progressbar = True)
 train_model.learn(model, dataloader, val_loader, num_epochs, grad_clippling=False, checkpointRate = None, name = "cnnModel")

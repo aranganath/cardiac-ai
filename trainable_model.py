@@ -92,8 +92,8 @@ class TrainableModel:
             # Mini-batch gradient descent: loop over batches of training examples
             # inputs.size() = (batch_size, D_in)
             # labels.size() = (batch_size, D_out)
-            for inputs, labels in progData:
-                
+            #for inputs, labels in progData:
+            for inputs, labels in dataloader:   
                 progData.set_postfix(loss="{:4f}".format(running_loss/num_batches))
                 
                 inputs = inputs.to(self.device)
