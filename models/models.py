@@ -3,8 +3,6 @@ from torch import nn, Tensor
 import math
 import torch.nn.functional as F
 
-from pdb import set_trace
-
 class PositionalEncoder(nn.Module):
     """
     The authors of the original transformer paper describe very succinctly what 
@@ -81,8 +79,7 @@ class PositionalEncoder(nn.Module):
             x: Tensor, shape [batch_size, enc_seq_len, dim_val] or 
                [enc_seq_len, batch_size, dim_val]
         """
-
-        x = x + self.pe[:x.size(self.x_dim)]
+        x = x + self.pe[:x.size(self.x_dim)].squeeze(1)
 
         return self.dropout(x)
 
@@ -194,14 +191,12 @@ class TimeSeriesTransformer(nn.Module):
             nn.ReLU(),
             nn.Conv1d(12,12, kernel_size=2, stride=2),
             nn.ReLU(),
-            nn.Linear(62, dim_val)
+            nn.Linear(6, dim_val)
         )
 
-        self.decoder_input_layer = nn.Sequential(
-            nn.Linear(
+        self.decoder_input_layer = nn.Linear(
                 in_features=num_predicted_features,
-                out_features=dim_val),
-        )
+                out_features=dim_val)
         
         self.linear_mapping = nn.Linear(
             in_features=dim_val, 
@@ -211,7 +206,8 @@ class TimeSeriesTransformer(nn.Module):
         # Create positional encoder
         self.positional_encoding_layer = PositionalEncoder(
             d_model=dim_val,
-            dropout=dropout_pos_enc
+            dropout=dropout_pos_enc,
+            batch_first=batch_first
         )
 
 
@@ -220,13 +216,14 @@ class TimeSeriesTransformer(nn.Module):
             nhead=n_heads,
             dim_feedforward=dim_feedforward_encoder,
             dropout=dropout_encoder,
-            batch_first=batch_first
+            batch_first=batch_first,
         )
 
         self.encoder = nn.TransformerEncoder(
             encoder_layer=encoder_layer,
             num_layers=n_encoder_layers, 
-            norm=None
+            norm=None,
+            enable_nested_tensor=False
         )
 
         decoder_layer = nn.TransformerDecoderLayer(
@@ -288,7 +285,7 @@ class TimeSeriesTransformer(nn.Module):
             nn.ReLU(),
             nn.ConvTranspose1d(15, 12, kernel_size=(3,), stride=(2,),),
             nn.ReLU(),
-            nn.ConvTranspose1d(12, 75, kernel_size=(2,), stride=(1,), dilation = 2),
+            nn.ConvTranspose1d(12, out_seq_len, kernel_size=(2,), stride=(1,), dilation = 2),
             nn.ReLU(),
             nn.Linear(75, out_features=75)
         )
@@ -322,7 +319,11 @@ class TimeSeriesTransformer(nn.Module):
 
         """
         recon = []
-        src = self.encoder_input_layer(src) 
+        # from pdb import set_trace
+        # set_trace()
+
+        src = self.encoder_input_layer(src)
+        
 
         # Pass through the positional encoding layer
         src = self.positional_encoding_layer(src)
@@ -362,7 +363,6 @@ class TimeSeriesTransformer(nn.Module):
 
                 recon.append(out_tgt) # shape [batch_size, target seq len]
             
-            
             recon = torch.stack(recon, axis = 1)
             
             return recon, activation
@@ -385,6 +385,6 @@ class TimeSeriesTransformer(nn.Module):
                 recon.append(out_tgt) # shape [batch_size, target seq len]
         
             recon = torch.stack(recon, axis = 1)
-            return recon, src
+            return recon, activation
         
         

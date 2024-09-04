@@ -243,7 +243,7 @@ def get_activation_time(
     actTime = np.reshape(actTime,(75,1))
     return actTime
 
-def fileReader(path: str, finalInd: int, train_test_ratio: float):
+def fileReader(path: str, finalInd: int, train_test_ratio: float, mode: str):
     '''
     Args:
         path: Path where the data is residing at the moment
@@ -252,44 +252,66 @@ def fileReader(path: str, finalInd: int, train_test_ratio: float):
     # Now, let's load the data itself
     files = []
     regex = r'data_hearts_dd_0p2*'
-    pECGTrainData, VmTrainData, pECGTestData, VmTestData, actTimeTrain, actTimeTest  = [], [], [], [], [], []
+    pECGTrainData, VmTrainData, pECGValData, VmValData, actTimeTrain, actTimeVal  = [], [], [], [], [], []
 
     for x in os.listdir(path):
         if re.match(regex, x):
             files.append(path + x)
 
-    data_dirs = read_data_dirs(files)[:finalInd]
+    data_dirs = read_data_dirs(files)
+    finalInd = min(finalInd,16000)
+    if mode in ("train", "val"):
+        indices = list(range(0,finalInd))
+        data_dirs = [data_dirs[index] for index in indices]
+        trainIndices = set(np.random.permutation(int(train_test_ratio*len(data_dirs))))
+        for i, (pECGData_file, VmData_file) in enumerate(data_dirs):
+            if i in trainIndices:
+                with open(pECGData_file, 'rb') as f:
+                    pECGTrainData.append(get_standard_leads(np.load(f)))
+                with open(VmData_file, 'rb') as f:
+                    VmTrainData.append(np.load(f))
+                    actTimeTrain.append(get_activation_time(VmTrainData[-1]).squeeze(1))
+            
+            else:
+                with open(pECGData_file, 'rb') as f:
+                    pECGValData.append(get_standard_leads(np.load(f)))
+                
+                with open(VmData_file, 'rb') as f:
+                    VmValData.append(np.load(f))
+                    actTimeVal.append(get_activation_time(VmValData[-1]).squeeze(1))
 
-    trainLength = int(train_test_ratio*len(data_dirs))
-
-    trainIndices = set(np.random.permutation(len(data_dirs))[:trainLength])
-
-    for i, (pECGData_file, VmData_file) in enumerate(tqdm(data_dirs, desc='Loading datafiles ')):
-        if i in trainIndices:
-            with open(pECGData_file, 'rb') as f:
-                pECGTrainData.append(get_standard_leads(np.load(f)))
-            with open(VmData_file, 'rb') as f:
-                VmTrainData.append(np.load(f))
-                actTimeTrain.append(get_activation_time(VmTrainData[-1]).squeeze(1))
         
-        else:
+        
+        VmTrainData = np.stack(VmTrainData, axis = 0)
+        pECGTrainData = np.stack(pECGTrainData, axis=0)
+        VmValData = np.stack(VmValData, axis = 0)
+        pECGValData = np.stack(pECGValData, axis = 0)
+        actTimeTrain = np.stack(actTimeTrain, axis = 0)
+        actTimeVal= np.stack(actTimeVal, axis = 0)
+        return torch.from_numpy(pECGTrainData), torch.from_numpy(VmTrainData),  torch.from_numpy(actTimeTrain)
+    
+    elif mode == "test":
+        pECGTestData, VmTestData, actTimeTest = [], [], []
+        indices = set(list(range(16000, 16117)))
+        data_dirs = [data_dirs[index] for index in indices]
+        for i, (pECGData_file, VmData_file) in enumerate(tqdm(data_dirs, desc='Loading datafiles ')):
+            
             with open(pECGData_file, 'rb') as f:
                 pECGTestData.append(get_standard_leads(np.load(f)))
             
             with open(VmData_file, 'rb') as f:
                 VmTestData.append(np.load(f))
                 actTimeTest.append(get_activation_time(VmTestData[-1]).squeeze(1))
+
         
     
-    VmTrainData = np.stack(VmTrainData, axis = 0)
-    pECGTrainData = np.stack(pECGTrainData, axis=0)
-    VmTestData = np.stack(VmTestData, axis = 0)
-    pECGTestData = np.stack(pECGTestData, axis = 0)
-    actTimeTrain = np.stack(actTimeTrain, axis = 0)
-    actTimeTest = np.stack(actTimeTest, axis = 0)
-    return torch.from_numpy(VmTrainData), torch.from_numpy(pECGTrainData), torch.from_numpy(VmTestData), torch.from_numpy(pECGTestData), torch.from_numpy(actTimeTrain), torch.from_numpy(actTimeTest)
+        VmTestData = np.stack(VmTestData, axis = 0)
+        pECGTestData = np.stack(pECGTestData, axis = 0)
+        actTimeTest = np.stack(actTimeTest, axis = 0)
+        return torch.from_numpy(pECGTestData), torch.from_numpy(VmTestData), torch.from_numpy(actTimeTest)    
 
-def get_indices_entire_sequence(VmData: torch.Tensor, ECGData: torch.Tensor, window_size: int, step_size: int) -> list:
+
+def get_indices(stop_position:int, window_size: int, step_size: int) -> list:
     """
     Produce all the start and end index positions that is needed to produce
     the sub-sequences. 
@@ -318,7 +340,6 @@ def get_indices_entire_sequence(VmData: torch.Tensor, ECGData: torch.Tensor, win
     Return:
         indices: a list of tuples
     """
-    stop_position = VmData.shape[1] 
     
     subseq_first_idx, subseq_last_idx = 0, window_size
     
@@ -332,6 +353,8 @@ def get_indices_entire_sequence(VmData: torch.Tensor, ECGData: torch.Tensor, win
         
         subseq_last_idx += step_size
     
+    # if datInd[-1][1] != stop_position:
+    #     datInd.append((subseq_first_idx, stop_position))
 
     return datInd
 
