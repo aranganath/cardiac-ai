@@ -1,11 +1,12 @@
 # %%
+import torch
 from torch.utils.data import DataLoader
-from utils import *
+from util import *
 from matplotlib import pyplot
 import os
 from pdb import set_trace
 from dataset import TransformerDataset
-from models import TimeSeriesTransformer
+from models1 import TimeSeriesTransformer
 
 # %%
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -146,7 +147,7 @@ for epoch in pbar:
     for i, (src, trg, trg_y, act_time) in enumerate(TrainData):
         optimizer.zero_grad()
         recon, activation = model(
-            src=src.permute(0,2,1).to(device),
+            src=src.permute(0,2,1)[:,:,:50].to(device),
             tgt=trg.to(device),
             src_mask=src_mask,
             tgt_mask=tgt_mask
@@ -162,7 +163,7 @@ for epoch in pbar:
             with torch.no_grad():
                 src, trg, trg_y, act_time = next(iter(TestData))
                 recon, activation = model(
-                    src=src.permute(0,2,1).to(device),
+                    src=src.permute(0,2,1)[:,:,:50].to(device),
                     tgt=trg.to(device),
                     src_mask=src_mask,
                     tgt_mask=tgt_mask

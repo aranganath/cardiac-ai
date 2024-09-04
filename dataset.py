@@ -71,8 +71,6 @@ class TransformerDataset(Dataset):
         3) trg_y (the target)
         """
         # Get the first and last element of the i'th tuple in the list self.VmInds
-
-        src_list, trg_list, trg_y_list = [], [], []
         inp_seq = self.ECGData[idx,:,:]
         tar_seq = self.VmData[idx,:,:]
         act_time = self.actTime[idx, :]
@@ -125,7 +123,6 @@ class TransformerDataset(Dataset):
         # encoder input
         src = inp_sequence[:enc_seq_len,:]
         trg, trg_y = [], []
-
         for i in range(len(self.datInd)-1):
             start_trg_idx, end_trg_idx = self.datInd[i][0], self.datInd[i][1]
             start_trgy_idx, end_trgy_idx = self.datInd[i+1][0], self.datInd[i+1][1]
