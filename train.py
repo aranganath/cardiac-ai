@@ -52,7 +52,7 @@ for case in range(len(file_pairs)):
 feature = torch.stack(feature, dim = 0)
 
 train_feature, train_label = feature[:12894], label[:12894]
-test_feature, test_label = feature[12894:], label[12894:]
+test_feature, test_label = feature[12894:16000], label[12894:16000]
 
 lead_data_min = torch.min(torch.min(train_feature, dim = 1).values, dim = 0).values
 lead_data_min = lead_data_min.reshape(1,1,-1)
