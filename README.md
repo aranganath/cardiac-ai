@@ -32,11 +32,11 @@ Just make sure, when you are using the slurm batch script, to run it on the righ
 To evaluate the model, use the following command
 
 ```
-    python eval.py --save_dir=configs/configs.yaml
+    python eval.py --save_dir=<SAVE_DIR>
 ```
 
 
-You do not have to specify the ```configs.yaml``` file. The folder already has one.
+You do not have to specify the ```configs.yaml``` file. The ```SAVE_DIR``` folder already has one. But you may, in case the configs file is different from the one in the SAVE_DIR folder.
 
 ### How to add your own model+dataset ?
 To add your own model, you would need to have a dataset file and a model file.
