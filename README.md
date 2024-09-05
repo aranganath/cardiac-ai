@@ -43,6 +43,7 @@ To add your own model, you would need to have a dataset file and a model file.
 
 Once you have the dataset file, place it under ```<dataset>``` folder.
 
+
 You may keep the model file under ```<models>``` folder. 
 
 For the model file, make sure the ```forward``` is replaced with ```_forward``` and ```nn.Module``` is replaced with ```BaseModel```. Add the line ```(from base import BaseModel)``` to the preamble.
