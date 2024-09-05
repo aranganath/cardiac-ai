@@ -1,0 +1,58 @@
+data:  
+  split:
+    train:
+      - [ECG, train]
+    test:
+      - [ECG, test]
+
+  start: 10 # How many steps are we taking into account
+  step_size: 10 # Less than 500, has to be equal to start for now.
+  file: 16000 # Select the number of patients
+  ratio: 0.8 # Select the ration of files
+  datapath: "data/intracardiac_dataset/"
+
+train:
+  batch_size: 32
+  num_workers: 0
+  epochs: 100
+  checkpoint_step: 100
+  optimizer:
+    name: adam # [sgd, rmsprop, adam]
+    params:
+      lr: 0.001
+  scheduler:
+    name: multi_step
+    params:
+      milestones: [50, 100]
+      gamma: 0.3
+
+model:
+  name: SelfTransformer
+  params:
+    enc_drop: 0.2
+    dec_drop: 0.2
+    heads: 75
+    dim_val: 75
+    enc_layers: 2
+    dec_layers: 2
+    enc_feed: 128
+    dec_feed: 128
+    batch_first: True
+    steps: 10 # same as start/step_size in data
+
+    
+  loss:
+    - name: huber
+      weight: 1.0
+  ckpt_path: ""
+
+test:
+  batch_size: 32
+  checkpoint: best # [best, last]
+  main_metric: rmse
+  metrics:
+    - rmse
+    - mae
+    - r2
+    - pearson_r
+    - spearman_r

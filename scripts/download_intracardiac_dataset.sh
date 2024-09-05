@@ -4,9 +4,9 @@
 # and put them in the directory intracardiac_dataset
 
 # Make the directory
-echo "Making directory intracardiac_dataset"
-mkdir -p intracardiac_dataset
-echo "Done"
+cd ..
+mkdir -p data/ && cd data/
+echo "Off-loading data to data/"
 
 # Move into the directory
 cd intracardiac_dataset
