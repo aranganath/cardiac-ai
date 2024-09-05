@@ -22,7 +22,7 @@ torch.set_default_dtype(torch.float64)
 
 # Load data
 path = './intracardiac_dataset/'
-VmTrainData, pECGTrainData, VmDataTest, pECGTestData, actTimeTrain, actTimeTest  = fileReader(path, 16140, 0.8)
+VmTrainData, pECGTrainData, VmDataTest, pECGTestData, actTimeTrain, actTimeTest  = fileReader(path, 16000, 0.8)
 print('Data loading from files - complete')
 
 VmTrainData = (VmTrainData - torch.min(VmTrainData))/(torch.max(VmTrainData) - torch.min(VmTrainData))
@@ -35,9 +35,8 @@ print('Normalization - complete!')
 
 # 80 -10 -10 split 
 TrainData = CNN1dDataset(VmTrainData, pECGTrainData)
-data_split = VmDataTest.shape[0]//2
-ValData = CNN1dDataset(VmDataTest[:data_split], pECGTestData[:data_split])
-TestData = CNN1dDataset(VmDataTest[data_split:], pECGTestData[data_split:])
+ValData = CNN1dDataset(VmDataTest, pECGTestData)
+#TestData = CNN1dDataset(VmDataTest[data_split:], pECGTestData[data_split:])
 
 model = SqueezeNet(version='1_1')
 model.to(device)
@@ -52,8 +51,9 @@ grad_clippling = False
 dropout = 0.0
 # loss_norm = MSE
 load_model = False
-model_path = '../cardiac-ai/model.pth'#./mymodel.training.epoch.1400.pth
-
+model_path = '/home/jornelasmunoz/cardiac-ai/cnnModel_v1.training.epoch.36.pth'#./mymodel.training.epoch.1400.pth
+#model = torch.load(model_path)
+#model.to(device)
 criterion = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters())
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size_scheduler,gamma=gamma_scheduler)
@@ -64,4 +64,4 @@ dataloader = DataLoader(TrainData, batch_size)
 val_loader = DataLoader(ValData, batch_size)
 
 train_model = TrainableModel(criterion, optimizer, scheduler, outputHandler, device=device, progressbar = True)
-train_model.learn(model, dataloader, val_loader, num_epochs, grad_clippling=False, checkpointRate = None, name = "cnnModel")
+train_model.learn(model, dataloader, val_loader, num_epochs, grad_clippling=False, checkpointRate = None, name = "cnnModel_v1_1")
