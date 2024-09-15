@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from models import SqueezeNet
 from dataset import CNN1dDataset
 from trainable_model import TrainableModel
-
+from data_interface import *
 seed_value = 12345
 torch.manual_seed(seed_value)  # For CPU
 torch.cuda.manual_seed(seed_value)  # For GPU
