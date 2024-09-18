@@ -76,8 +76,8 @@ num_epochs = 1400
 grad_clippling = False
 dropout = 0.0
 # loss_norm = MSE
-load_model = False
-model_path = '/home/jornelasmunoz/cardiac-ai/cnnModel_v1.training.epoch.36.pth'#./mymodel.training.epoch.1400.pth
+load_model = True
+model_path = '/home/jornelasmunoz/cardiac-ai/cnnModel_v1_1.training.epoch.280.pth'#./mymodel.training.epoch.1400.pth
 if load_model:
     model = torch.load(model_path)
     model.to(device)
@@ -93,4 +93,4 @@ dataloader = DataLoader(TrainData, batch_size)
 val_loader = DataLoader(ValData, batch_size)
 
 train_model = TrainableModel(criterion, optimizer, scheduler, outputHandler, device=device, progressbar = True)
-train_model.learn(model, dataloader, val_loader, num_epochs, grad_clippling=False, checkpointRate = None, name = "cnnModel_v1_1")
+train_model.learn(model, dataloader, val_loader, num_epochs, grad_clippling=False, checkpointRate = None, name = "cnnModel_v1_1_280")
