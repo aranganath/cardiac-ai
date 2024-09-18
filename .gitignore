@@ -168,3 +168,5 @@ intracardiac_dataset/
 cnnModel.best.pth
 cnnModel.training.epoch.0.pth
 cnnModel.training.epoch.100.pth
+*.stdout
+*.pth
