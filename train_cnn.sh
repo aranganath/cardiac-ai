@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=56 # this job requests for 56 cores on a node
 #SBATCH --output=my_%j.stdout    # standard output will be redirected to this file
 # #SBATCH --constraint=bigmem   #uncomment this line if you need the access to the bigmem node for Pinnacles
-# #SBATCH --constraint=gpu #uncomment this line if you need the access to GPU
+#SBATCH --constraint=gpu #uncomment this line if you need the access to GPU
 #SBATCH --gres=gpu:1   #uncomment this line if you need GPU access (2 GPUs)
 #SBATCH --job-name=cardiac_ai_cnn    # this is your job’s name
 #SBATCH --mail-user=jornelasmunoz@ucmerced.edu  
