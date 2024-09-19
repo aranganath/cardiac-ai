@@ -19,10 +19,10 @@ pwd; hostname; date
 export PROJECT_DIR=/home/jornelasmunoz/cardiac-ai
 
 module load anaconda3
-
+conda init
 source activate pytorch
 
-echo 'Starting Matlab'
+echo 'Starting Job'
 python3 -u $PROJECT_DIR/train_cnn.py
 
 wait
