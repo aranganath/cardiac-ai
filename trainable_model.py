@@ -58,9 +58,9 @@ class TrainableModel:
                     tqdm.tqdm.write("Epoch {:3d}/{},  training : {:11.4f}   validation : {:11.4f}   best validation loss : {:11.4f} on epoch {}"
                                     .format(epoch + 1 , num_epochs, trainingLoss, validationLoss, bestLoss, bestEpoch + 1))
                     
-                    # # Print stats into file                                          
-                    # self.outputHandler.write_errors(epoch + 1, num_epochs, trainingLoss, validationLoss, bestLoss, bestEpoch + 1 )
-                    # self.outputHandler.write_grads(model.parameters())    
+                    # Print stats into file                                          
+                    self.outputHandler.write_errors(epoch + 1, num_epochs, trainingLoss, validationLoss, bestLoss, bestEpoch + 1 )
+                    self.outputHandler.write_grads(model.parameters())    
     
             timeElapsed = time.time() - since
     

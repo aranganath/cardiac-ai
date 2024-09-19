@@ -188,7 +188,7 @@ class Ecg2VmDataset(Dataset):
         
         for i, pair in enumerate(file_pairs):    
             
-            print(f'Processing files {pair[0]} {pair[1]} ...', end='')            
+            # print(f'Processing files {pair[0]} {pair[1]} ...', end='')            
             # Load the whole tensor
             # shape = (num_timesteps, 10)
             dataECG = torch.Tensor(np.load(pair[0]))
@@ -248,7 +248,9 @@ class Ecg2VmDataset(Dataset):
                 max_ECG = torch.Tensor([4.5093912, 4.2175924, 4.23887649, 5.473125233494979, 3.555297089959163, 3.018831728255531, 2.984374763664689, 2.359350064582923, 2.205404624762396, 2.014215222417507, 1.7023503410995358, 2.128710478327503]); 
                 dataECG = dataECG/(max_ECG - min_ECG)
             if scaling_ecg.lower() in ('normalized_unit', 'normalization_unit'):
+                print(ecg12aux.shape)
                 diff_ECG = torch.max(ecg12aux,0)[0] - torch.min(ecg12aux,0)[0]
+                print(diff_ECG)
                 dataECG = dataECG/diff_ECG
             if scaling_ecg.lower() in ('standardized', 'standardization'): 
                 mean_ECG = torch.Tensor([0.05337660278745852, 0.07800385312690625, 0.024627250339440174, -0.06569022815751291, 0.014374676023680694, 0.05131555153284552, -0.010237228016673849, -0.003921020891815309, 0.0022406280086986834, 0.009890627175816347, 0.028677603573294373, 0.03275114376978516]);

@@ -7,6 +7,9 @@ import re
 from tqdm import tqdm
 from pdb import set_trace
 
+import argparse, sys
+import numpy as np
+import h5py
 
 def generate_square_subsequent_mask(dim1: int, dim2: int) -> torch.Tensor:
     """
@@ -400,3 +403,43 @@ def get_activation_time(
     actTime = torch.from_numpy(np.asarray(actTime))
     actTime = actTime.reshape((75,1))
     return actTime
+
+class OutputHandler:
+    
+    def __init__(self, name, metadata_errors, shape_errors, metadata_grads, shape_grads):
+        
+        self._hdf5_errors = HDF5Store(name + '_errors.h5','dataset', shape_errors)
+        self._hdf5_errors.write_attrs(metadata_errors)
+        
+        self._hdf5_grads = HDF5Store(name + '_grads.h5','dataset', shape_grads)
+        self._hdf5_grads.write_attrs(metadata_grads)
+
+        
+    def write_errors(self, epoch, num_epochs, trainingLoss, validationLoss, bestLoss, bestEpoch):
+        
+        #self._output.write("{:3d}  {:11.4f}   {:11.4f} \n".format(epoch+1, trainingLoss, validationLoss))
+        #errorsList = [epoch+1, trainingLoss, validationLoss]
+                
+        # if not self._errorsInit :
+        #     self._errors = np.asarray(errorsList).reshape((1, len(errorsList)))
+        #     self._errorsInit = True              
+        # else :
+        #     self._errors = np.concatenate((self._errors, np.asarray(errorsList).reshape((1, len(errorsList)))), axis=0)    
+        
+        self._hdf5_errors.append(np.array([epoch, trainingLoss, validationLoss, bestLoss, bestEpoch]))
+        
+        
+    def write_grads(self, parameters):
+                              
+        gradNormList = []
+        for p in list(filter(lambda p: p.grad is not None, parameters)):
+            gradNormList.append(p.grad.data.norm(2).item())
+        
+        # if not self._gradNormInit :
+        #     self._gradNorm = np.asarray(gradNormList).reshape((1, len(gradNormList)))
+        #     self._gradNormInit = True              
+        # else :
+        #     self._gradNorm = np.concatenate((self._gradNorm, np.asarray(gradNormList).reshape((1, len(gradNormList)))),
+        #    axis=0)
+            
+        self._hdf5_grads.append(np.array(gradNormList))
